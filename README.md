@@ -56,6 +56,41 @@ docker-compose up -d
 
 Mount a volume if you want to persist `tokens.json` across container restarts.
 
+## MCP Client Setup
+
+### Claude Desktop
+
+1. Start Claude once so it creates `claude_desktop_config.json`.
+2. Edit the config file:
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%/Claude/claude_desktop_config.json`
+3. Under the `mcpServers` section add:
+
+```json
+"hubstaff-mcp": {
+  "type": "remote",
+  "enabled": true,
+  "url": "http://localhost:8000/mcp"
+}
+```
+
+4. Restart Claude. If the server is running remotely, replace `localhost` with its HTTPS endpoint.
+
+### OpenCode CLI
+
+1. Open (or create) `~/.opencode/mcp.json`.
+2. Add the same remote server entry inside the `servers` object:
+
+```json
+"hubstaff-mcp": {
+  "type": "remote",
+  "enabled": true,
+  "url": "http://localhost:8000/mcp"
+}
+```
+
+3. Restart the OpenCode CLI or run `opencode reload` so the new MCP server becomes available.
+
 ## Available Tools
 
 - `get_time_breakdown` - Get daily time breakdown by project and task
