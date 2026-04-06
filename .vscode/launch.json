@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🚀 Debug Hubstaff MCP (All)",
+            "type": "debugpy",
+            "module": "src.hubstaff_mcp.server",
+            // "args": [],
+             "request": "launch",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false,
+        }
+    ],
+    "compounds": []
+}

@@ -1,0 +1,3534 @@
+{
+  "info": {
+    "title": "Hubstaff Tasks V1 API",
+    "contact": {
+      "email": "support@hubstaff.com"
+    },
+    "version": "1.0"
+  },
+  "swagger": "2.0",
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "oauth2": {
+      "type": "oauth2",
+      "description": "Hubstaff Account OpenID Connect Authentication",
+      "flow": "accessCode",
+      "x-nonce": true,
+      "authorizationUrl": "https://account.hubstaff.com/authorizations/new",
+      "tokenUrl": "https://account.hubstaff.com/access_tokens",
+      "scopes": {
+        "tasks:write": "Write access to the Hubstaff Tasks API",
+        "tasks:read": "Read access to the Hubstaff Tasks API"
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": [
+        "tasks:read",
+        "tasks:write"
+      ]
+    }
+  ],
+  "host": "tasks.hubstaff.com",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "x-tagGroups": [
+    {
+      "name": "Endpoints",
+      "tags": [
+        "attachments",
+        "checklists",
+        "comments",
+        "folders",
+        "labels",
+        "lists",
+        "members",
+        "organizations",
+        "projects",
+        "tasks",
+        "time_entries"
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "attachments",
+      "description": "View file attachments on tasks"
+    },
+    {
+      "name": "checklists",
+      "description": "View task checklists and their items"
+    },
+    {
+      "name": "comments",
+      "description": "Add comments and discussions to tasks"
+    },
+    {
+      "name": "folders",
+      "description": "Organize projects into folders"
+    },
+    {
+      "name": "labels",
+      "description": "Categorize and filter tasks with color-coded labels"
+    },
+    {
+      "name": "lists",
+      "description": "Organize tasks into lists within projects"
+    },
+    {
+      "name": "members",
+      "description": "View organization members and their roles"
+    },
+    {
+      "name": "organizations",
+      "description": "View organizations and their settings"
+    },
+    {
+      "name": "projects",
+      "description": "Create and manage projects for task organization"
+    },
+    {
+      "name": "tasks",
+      "description": "Create, update, and track tasks with assignments and due dates"
+    },
+    {
+      "name": "time_entries",
+      "description": "Track time spent on tasks"
+    }
+  ],
+  "paths": {
+    "/v1/checklists/{checklist_id}": {
+      "get": {
+        "summary": "Get checklist",
+        "description": "Returns the checklist with the given ID.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "checklist_id",
+            "description": "A checklist ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A checklist",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "checklist": {
+                  "$ref": "#/definitions/checklist"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "checklists"
+        ],
+        "operationId": "getV1ChecklistsChecklistId"
+      }
+    },
+    "/v1/checklists/{checklist_id}/items": {
+      "get": {
+        "summary": "List checklist items",
+        "description": "Returns a collection of items for the given checklist.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "checklist_id",
+            "description": "A checklist ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of checklist items",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "checklist_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/checklist_item"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "checklists"
+        ],
+        "operationId": "getV1ChecklistsChecklistIdItems"
+      }
+    },
+    "/v1/folders": {
+      "get": {
+        "summary": "List folders",
+        "description": "Returns a collection of folders.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of folders",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "folders": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/folder"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "folders"
+        ],
+        "operationId": "getV1Folders"
+      }
+    },
+    "/v1/folders/{folder_id}": {
+      "get": {
+        "summary": "Get folder",
+        "description": "Returns the folder with the given ID.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder_id",
+            "description": "A folder ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A folder",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "folder": {
+                  "$ref": "#/definitions/folder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "folders"
+        ],
+        "operationId": "getV1FoldersFolderId"
+      }
+    },
+    "/v1/folders/{folder_id}/projects": {
+      "get": {
+        "summary": "List folder projects",
+        "description": "Returns a collection of projects for the given folder.\n\nResults can be filtered by status (active/archived).\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "type": "string",
+            "default": "active",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "folder_id",
+            "description": "A folder ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of projects",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "projects": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/project"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "operationId": "getV1FoldersFolderIdProjects"
+      },
+      "post": {
+        "summary": "Create project",
+        "description": "Creates a new project within the given folder.\n\nReturns the created project.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "project[name]",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "folder_id",
+            "description": "A folder ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A project",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "project": {
+                  "$ref": "#/definitions/project"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "operationId": "postV1FoldersFolderIdProjects"
+      }
+    },
+    "/v1/lists/{list_id}": {
+      "get": {
+        "summary": "Get list",
+        "description": "Returns the list with the given ID.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "description": "A list ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "$ref": "#/definitions/list"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "lists"
+        ],
+        "operationId": "getV1ListsListId"
+      }
+    },
+    "/v1/lists/{list_id}/tasks": {
+      "get": {
+        "summary": "List list tasks",
+        "description": "Returns a collection of tasks for the given list.\n\nResults can be filtered by assignee (all/assigned/unassigned) and updated[start]/updated[stop] time range.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "removed",
+            "type": "boolean",
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "list_id",
+            "description": "A list ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of tasks",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "tasks": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/task"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "tasks"
+        ],
+        "operationId": "getV1ListsListIdTasks"
+      },
+      "post": {
+        "summary": "Create task",
+        "description": "Creates a new task in the given list.\n\nReturns the created task.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "task[subject]",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "task[description]",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[due_on]",
+            "type": "string",
+            "format": "date",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[due_at]",
+            "type": "string",
+            "format": "date-time",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[estimate_hours]",
+            "type": "number",
+            "format": "float",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[assignee_ids]",
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[assigned_to_id]",
+            "type": "integer",
+            "format": "int32",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[label_ids]",
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[follower_ids]",
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "list_id",
+            "description": "A list ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A task",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "task": {
+                  "$ref": "#/definitions/task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "tasks"
+        ],
+        "operationId": "postV1ListsListIdTasks"
+      }
+    },
+    "/v1/members/me": {
+      "get": {
+        "summary": "Get current member",
+        "description": "Returns the currently authenticated member.\n",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "A member",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "member": {
+                  "$ref": "#/definitions/member"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "members"
+        ],
+        "operationId": "getV1MembersMe"
+      }
+    },
+    "/v1/members/{member_id}": {
+      "get": {
+        "summary": "Get member",
+        "description": "Returns the member with the given ID.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "member_id",
+            "description": "A member ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A member",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "member": {
+                  "$ref": "#/definitions/member"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "members"
+        ],
+        "operationId": "getV1MembersMemberId"
+      }
+    },
+    "/v1/organizations": {
+      "get": {
+        "summary": "List organizations",
+        "description": "Returns a collection of organizations accessible to the current user.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of organizations",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "organizations": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/organization"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "organizations"
+        ],
+        "operationId": "getV1Organizations"
+      }
+    },
+    "/v1/organizations/{organization_id}": {
+      "get": {
+        "summary": "Get organization",
+        "description": "Returns the organization with the given ID.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "description": "An organization ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An organization",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "organization": {
+                  "$ref": "#/definitions/organization"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "organizations"
+        ],
+        "operationId": "getV1OrganizationsOrganizationId"
+      }
+    },
+    "/v1/organizations/{organization_id}/folders": {
+      "get": {
+        "summary": "List organization folders",
+        "description": "Returns a collection of folders for the given organization.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "organization_id",
+            "description": "An organization ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of folders",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "folders": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/folder"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "folders"
+        ],
+        "operationId": "getV1OrganizationsOrganizationIdFolders"
+      },
+      "post": {
+        "summary": "Create folder",
+        "description": "Creates a new folder for the given organization.\n\nReturns the created folder.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "folder[name]",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "folder[folder_type]",
+            "type": "string",
+            "enum": [
+              "project",
+              "epic"
+            ],
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "organization_id",
+            "description": "An organization ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A folder",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "folder": {
+                  "$ref": "#/definitions/folder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "folders"
+        ],
+        "operationId": "postV1OrganizationsOrganizationIdFolders"
+      }
+    },
+    "/v1/organizations/{organization_id}/members": {
+      "get": {
+        "summary": "List organization members",
+        "description": "Returns a collection of members for the given organization.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "organization_id",
+            "description": "An organization ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of members",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/member"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "members"
+        ],
+        "operationId": "getV1OrganizationsOrganizationIdMembers"
+      }
+    },
+    "/v1/organizations/{organization_id}/projects": {
+      "get": {
+        "summary": "List organization projects",
+        "description": "Returns a collection of projects for the given organization.\n\nResults can be filtered by status (active/archived).\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "type": "string",
+            "default": "active",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "organization_id",
+            "description": "An organization ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of projects",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "projects": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/project"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "operationId": "getV1OrganizationsOrganizationIdProjects"
+      }
+    },
+    "/v1/projects": {
+      "get": {
+        "summary": "List projects",
+        "description": "Returns a collection of all projects accessible to the current user.\n\nResults can be filtered by status (active/archived).\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "type": "string",
+            "default": "active",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of projects",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "projects": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/project"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "operationId": "getV1Projects"
+      }
+    },
+    "/v1/projects/{project_id}": {
+      "get": {
+        "summary": "Get project",
+        "description": "Returns the project with the given ID.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "description": "A project ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A project",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "project": {
+                  "$ref": "#/definitions/project"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "operationId": "getV1ProjectsProjectId"
+      }
+    },
+    "/v1/projects/{project_id}/labels": {
+      "get": {
+        "summary": "List project labels",
+        "description": "Returns a collection of labels for the given project.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "description": "A project ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of labels",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/label"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "labels"
+        ],
+        "operationId": "getV1ProjectsProjectIdLabels"
+      },
+      "post": {
+        "summary": "Create label",
+        "description": "Creates a new label for the given project.\n\nReturns the created label.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "label[name]",
+            "description": "The list label",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "label[color]",
+            "description": "A color for the label",
+            "type": "string",
+            "enum": [
+              "red",
+              "orange",
+              "yellow",
+              "lime",
+              "green",
+              "blue",
+              "sky",
+              "purpleBlue",
+              "purple",
+              "purplePink",
+              "pink",
+              "black"
+            ],
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "description": "A project ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A label",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "$ref": "#/definitions/label"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "labels"
+        ],
+        "operationId": "postV1ProjectsProjectIdLabels"
+      }
+    },
+    "/v1/projects/{project_id}/lists": {
+      "get": {
+        "summary": "List project lists",
+        "description": "Returns a collection of lists for the given project.\n\nUse removed=true to include removed lists.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "removed",
+            "type": "boolean",
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "description": "A project ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A collection of lists",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "lists": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/list"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "lists"
+        ],
+        "operationId": "getV1ProjectsProjectIdLists"
+      },
+      "post": {
+        "summary": "Create list",
+        "description": "Creates a new list for the given project.\n\nReturns the created list.\n\nAvailable types: normal (default), done.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "list[name]",
+            "description": "The list label",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "list[type]",
+            "description": "The list type",
+            "type": "string",
+            "default": "normal",
+            "enum": [
+              "normal",
+              "done"
+            ],
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "list[position]",
+            "description": "The list position. Default is to add as the last list.",
+            "type": "integer",
+            "format": "int32",
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "description": "A project ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A list",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "$ref": "#/definitions/list"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "lists"
+        ],
+        "operationId": "postV1ProjectsProjectIdLists"
+      }
+    },
+    "/v1/projects/{project_id}/members": {
+      "get": {
+        "summary": "List project members",
+        "description": "Returns a collection of members for the given project.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "description": "A project ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of members",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/member"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "members"
+        ],
+        "operationId": "getV1ProjectsProjectIdMembers"
+      }
+    },
+    "/v1/projects/{project_id}/tasks": {
+      "get": {
+        "summary": "List project tasks",
+        "description": "Returns a collection of tasks for the given project.\n\nResults can be filtered by assignee (all/assigned/unassigned) and updated[start]/updated[stop] time range.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "assignee",
+            "description": "Whether to only include assigned tasks",
+            "type": "string",
+            "default": "all",
+            "enum": [
+              "all",
+              "unassigned",
+              "assigned"
+            ],
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "updated[after]",
+            "description": "Start time (ISO 8601, Exclusive)",
+            "type": "string",
+            "format": "date-time",
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "updated[start]",
+            "description": "Start time (ISO 8601)",
+            "type": "string",
+            "format": "date-time",
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "updated[stop]",
+            "description": "Stop time (ISO 8601, Exclusive)",
+            "type": "string",
+            "format": "date-time",
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "removed",
+            "type": "boolean",
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "description": "A project ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of tasks",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "tasks": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/task"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "tasks"
+        ],
+        "operationId": "getV1ProjectsProjectIdTasks"
+      }
+    },
+    "/v1/tasks/my/assigned": {
+      "get": {
+        "summary": "List my assigned tasks",
+        "description": "Returns a collection of tasks assigned to the current user.\n\nUse removed=true to include removed tasks.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "removed",
+            "type": "boolean",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of tasks",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "tasks": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/task"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "tasks"
+        ],
+        "operationId": "getV1TasksMyAssigned"
+      }
+    },
+    "/v1/tasks/{task_id}": {
+      "get": {
+        "summary": "Get task",
+        "description": "Returns the task with the given ID.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A task",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "task": {
+                  "$ref": "#/definitions/task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "tasks"
+        ],
+        "operationId": "getV1TasksTaskId"
+      },
+      "patch": {
+        "summary": "Update task",
+        "description": "Updates a task.\n\nReturns the updated task.\n\nOnly pass in the fields you want to change.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "task[subject]",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[description]",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[due_at]",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[due_on]",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[estimate_hours]",
+            "type": "number",
+            "format": "float",
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[assignee_ids]",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[label_ids]",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "in": "formData",
+            "name": "task[external_id]",
+            "type": "integer",
+            "format": "int32",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A task",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "task": {
+                  "$ref": "#/definitions/task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "tasks"
+        ],
+        "operationId": "patchV1TasksTaskId"
+      }
+    },
+    "/v1/tasks/{task_id}/complete": {
+      "patch": {
+        "summary": "Complete task",
+        "description": "Marks a task as complete by moving it to the Done list.\n\nReturns the completed task.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A task",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "task": {
+                  "$ref": "#/definitions/task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "tasks"
+        ],
+        "operationId": "patchV1TasksTaskIdComplete"
+      }
+    },
+    "/v1/tasks/{task_id}/attachments": {
+      "get": {
+        "summary": "List task attachments",
+        "description": "Returns a collection of attachments for the given task.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of attachments",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "attachments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/attachment"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "attachments"
+        ],
+        "operationId": "getV1TasksTaskIdAttachments"
+      }
+    },
+    "/v1/tasks/{task_id}/checklists": {
+      "get": {
+        "summary": "List task checklists",
+        "description": "Returns a collection of checklists for the given task.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of checklists",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "checklists": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/checklist"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "checklists"
+        ],
+        "operationId": "getV1TasksTaskIdChecklists"
+      }
+    },
+    "/v1/tasks/{task_id}/comments": {
+      "get": {
+        "summary": "List task comments",
+        "description": "Returns a collection of comments for the given task.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of comments",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "comments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/comment"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "comments"
+        ],
+        "operationId": "getV1TasksTaskIdComments"
+      },
+      "post": {
+        "summary": "Create comment",
+        "description": "Creates a new comment for the given task.\n\nReturns the created comment.\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "comment[content]",
+            "description": "The contents of the comment",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A comment",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "comment": {
+                  "$ref": "#/definitions/comment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "comments"
+        ],
+        "operationId": "postV1TasksTaskIdComments"
+      }
+    },
+    "/v1/tasks/{task_id}/time_entries": {
+      "get": {
+        "summary": "List task time entries",
+        "description": "Returns a collection of time entries for the given task.\n",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_start_id",
+            "description": "The page start ID.",
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "page_limit",
+            "description": "The default page size",
+            "type": "integer",
+            "format": "int32",
+            "default": null,
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of time entries",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "time_entries": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/time_entry"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "time_entries"
+        ],
+        "operationId": "getV1TasksTaskIdTimeEntries"
+      },
+      "post": {
+        "summary": "Create time entry",
+        "description": "Creates a new time entry for the given task.\n\nReturns the created time entry.\n\nTime must be specified as ISO 8601 timestamps (started_at and stopped_at).\n",
+        "produces": [
+          "application/json"
+        ],
+        "consumes": [
+          "application/json",
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "time_entry[started_at]",
+            "type": "string",
+            "format": "date-time",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "time_entry[stopped_at]",
+            "type": "string",
+            "format": "date-time",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "time_entry[comments]",
+            "type": "string",
+            "required": false
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "description": "A task ID",
+            "type": "integer",
+            "format": "int32",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A time entry",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "time_entry": {
+                  "$ref": "#/definitions/time_entry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "403": {
+            "description": "API access is only for organizations on an active plan",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "404": {
+            "description": "Could not find record",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "schema": {
+              "$ref": "#/definitions/HubstaffTasks_Public_V1_Entities_Error"
+            }
+          }
+        },
+        "tags": [
+          "time_entries"
+        ],
+        "operationId": "postV1TasksTaskIdTimeEntries"
+      }
+    }
+  },
+  "definitions": {
+    "checklist": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "position": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "checklist model"
+    },
+    "HubstaffTasks_Public_V1_Entities_Error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Error code"
+        },
+        "error": {
+          "type": "string",
+          "description": "Descriptive error message"
+        }
+      },
+      "description": "HubstaffTasks_Public_V1_Entities_Error model"
+    },
+    "checklist_item": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "done": {
+          "type": "boolean"
+        },
+        "checklist_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "position": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "checklist_item model"
+    },
+    "folder": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "folder_type": {
+          "type": "string"
+        },
+        "organization_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "folder model"
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "organization_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "folder_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "project model"
+    },
+    "list": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "position": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "task_count": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "type": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "list model"
+    },
+    "task": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "author_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "assignee_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "estimate_hours": {
+          "type": "number",
+          "format": "float"
+        },
+        "follower_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "mention_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "label_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "position": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "list_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "done": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "list": {
+          "$ref": "#/definitions/list"
+        },
+        "start_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "due_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "due_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "done_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "task model"
+    },
+    "member": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "name": {
+          "type": "string"
+        },
+        "screen_name": {
+          "type": "string"
+        },
+        "time_zone": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "member model"
+    },
+    "organization": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "organization model"
+    },
+    "label": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "label model"
+    },
+    "attachment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "task_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "attachment model"
+    },
+    "comment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "content": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "mentions": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "task_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "comment model"
+    },
+    "time_entry": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "comments": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "task_id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "seconds": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "stopped_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "time_entry model"
+    }
+  }
+}

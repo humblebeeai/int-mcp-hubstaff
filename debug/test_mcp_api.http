@@ -1,0 +1,369 @@
+###############################################
+# Hubstaff MCP Server REST API Test Suite
+# 
+# Use with VSCode REST Client extension or any HTTP client
+# Make sure the MCP server is running on http://localhost:8000
+# 
+# Start server: python -m hubstaff_mcp.server
+# Or debug in VSCode: F5 -> "🚀 Debug Hubstaff MCP (All)"
+###############################################
+
+@baseURL = http://localhost:8000
+@contentType = application/json
+
+###############################################
+# 1. SERVER HEALTH & INITIALIZATION
+###############################################
+
+### Check if server is running
+GET {{baseURL}}
+
+### Initialize MCP connection
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "initialize",
+  "id": 1,
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "REST Client Test",
+      "version": "1.0.0"
+    }
+  }
+}
+
+### List all available MCP tools
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/list",
+  "id": 2
+}
+
+###############################################
+# 2. TEAM & PROJECT MANAGEMENT
+###############################################
+
+### Get team members (should work immediately)
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 3,
+  "params": {
+    "name": "list_team_members",
+    "arguments": {
+    }
+  }
+}
+
+### Get all projects
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 4,
+  "params": {
+    "name": "list_projects",
+    "arguments": {}
+  }
+}
+
+### Get active projects only
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 5,
+  "params": {
+    "name": "list_projects", 
+    "arguments": {
+      "status": "active"
+    }
+  }
+}
+
+###############################################
+# 3. TIME TRACKING & ANALYTICS
+###############################################
+
+### Get daily time breakdown for user
+# Replace user_id with a real user ID from list_team_members
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 6,
+  "params": {
+    "name": "get_time_breakdown",
+    "arguments": {
+      "date": "2024-04-06",
+      "user_id": 3956066
+    }
+  }
+}
+
+### Get time breakdown for user with specific projects
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 7,
+  "params": {
+    "name": "get_time_breakdown",
+    "arguments": {
+      "start_date": "2026-04-05T00:00:00Z", 
+      "end_date": "2026-04-05T23:59:59Z",
+      "user_id": 2051492
+    }
+  }
+}
+
+### Get total hours on specific project
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 8,
+  "params": {
+    "name": "get_project_hours",
+    "arguments": {
+      "project_id": 3467649,
+      "user_id": 2051492,
+      "start_date": "2026-04-05T00:00:00Z", 
+      "end_date": "2026-04-05T23:59:59Z"
+    }
+  }
+}
+
+### Get team time summary
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 9,
+  "params": {
+    "name": "get_team_time_summary",
+    "arguments": {
+      "user_ids": [2051492],
+      "start_date": "2026-04-05T00:00:00Z", 
+      "end_date": "2026-04-05T23:59:59Z"
+    }
+  }
+}
+
+### Get team time summary with project filter
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 10,
+  "params": {
+    "name": "get_team_time_summary",
+    "arguments": {
+      "user_ids": [2051492],
+      "start_date": "2026-04-05T00:00:00Z", 
+      "end_date": "2026-04-05T23:59:59Z",
+      "project_ids": [3467649]
+    }
+  }
+}
+
+###############################################
+# 4. HUBSTAFF V2 TASK MANAGEMENT
+###############################################
+
+### List tasks in a project (Hubstaff v2)
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 11,
+  "params": {
+    "name": "list_todos",
+    "arguments": {
+      "project_id": 3076167
+    }
+  }
+}
+
+### List all tasks with status filter
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 12,
+  "params": {
+    "name": "list_todos",
+    "arguments": {
+      "status": "active"
+    }
+  }
+}
+
+### Create task in Hubstaff v2 (non-integrated projects)
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 13,
+  "params": {
+    "name": "create_task",
+    "arguments": {
+      "project_id": 3467649,
+      "title": "REST API Test Task",
+      "assignee_id": 2051492
+    }
+  }
+}
+
+###############################################
+# 5. HUBSTAFF TASKS API (INTEGRATED PROJECTS)
+###############################################
+
+### Get Tasks projects (integrated with Jira/Asana etc.)
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 14,
+  "params": {
+    "name": "list_tasks_projects",
+    "arguments": {}
+  }
+}
+
+### Get Tasks projects with status filter
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 15,
+  "params": {
+    "name": "list_tasks_projects",
+    "arguments": {
+      "status": "active"
+    }
+  }
+}
+
+### Get Tasks-specific member IDs
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 16,
+  "params": {
+    "name": "list_tasks_members",
+    "arguments": {}
+  }
+}
+
+### Get lists in a Tasks project
+# Project 1121122 = "RedTeam" 
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 17,
+  "params": {
+    "name": "get_tasks_lists",
+    "arguments": {
+      "project_id": 1121122
+    }
+  }
+}
+
+### Create todo in Hubstaff Tasks (integrated projects)
+# list_id 3112051 = "To Do" list in Self Improvement project
+# assignee_ids 335446 = Tasks-specific member ID
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 18,
+  "params": {
+    "name": "create_todo",
+    "arguments": {
+      "list_id": 3112132,
+      "title": "REST API Test Todo",
+      "assignee_ids": [335446]
+    }
+  }
+}
+
+### Create todo with full details
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 19,
+  "params": {
+    "name": "create_todo",
+    "arguments": {
+      "list_id": 3112132,
+      "title": "Detailed REST Test Todo", 
+      "assignee_ids": [335446],
+      "description": "This todo was created via REST API testing with full details",
+      "due_on": "2024-04-15"
+    }
+  }
+}
+
+### Create todo with multiple assignees
+POST {{baseURL}}/mcp
+Content-Type: {{contentType}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call", 
+  "id": 20,
+  "params": {
+    "name": "create_todo",
+    "arguments": {
+      "list_id": 3112132,
+      "title": "Multi-assignee REST Test",
+      "assignee_ids": [335446, 548285]
+    }
+  }
+}
