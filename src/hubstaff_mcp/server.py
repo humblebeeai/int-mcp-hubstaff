@@ -123,7 +123,8 @@ async def list_tools() -> list[types.Tool]:
                     "due_on": {"type": "string", "description": "New due date YYYY-MM-DD (optional)"},
                     "list_id": {"type": "integer", "description": "Move to this list/column ID (optional)"}
                 },
-                "required": ["task_id"]
+                "required": ["task_id"],
+                "minProperties": 2
             }
         ),
         Tool(
@@ -244,7 +245,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 return [TextContent(type="text", text=f"Error creating task: most likely this project does not have task integration enabled. Details: {str(e)}")]
 
         elif name == "create_todo":
-            token = await HubstaffClient()._get_access_token()
+            token = await client._get_access_token()
             tasks_client = HubstaffTasksClient(access_token=token)
             try:
                 todo = await tasks_client.create_task(
@@ -261,7 +262,12 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 await tasks_client.close()
 
         elif name == "update_todo":
-            token = await HubstaffClient()._get_access_token()
+            # Reject calls that provide no fields to update (fail fast)
+            update_fields = {k: v for k, v in arguments.items() if k != "task_id" and v is not None}
+            if not update_fields:
+                return [TextContent(type="text", text="Error: No update fields provided. Please specify at least one property to update (e.g. title, assignee_ids, description, due_on, or list_id).")]
+
+            token = await client._get_access_token()
             tasks_client = HubstaffTasksClient(access_token=token)
             try:
                 todo = await tasks_client.update_task(
