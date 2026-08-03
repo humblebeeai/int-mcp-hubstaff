@@ -16,7 +16,6 @@ class Config(BaseSettings):
     hubstaff_api_base_url: str = "https://api.hubstaff.com"
     hubstaff_tasks_base_url: str = "https://tasks.hubstaff.com"
     port: int = 8000
-    mcp_api_key: str | None = None
     
     @property
     def hubstaff_token(self) -> str:
