@@ -111,6 +111,23 @@ async def list_tools() -> list[types.Tool]:
             }
         ),
         Tool(
+            name="update_todo",
+            description="Update an existing todo in Hubstaff Tasks",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "integer", "description": "Task ID in Hubstaff Tasks - REQUIRED"},
+                    "title": {"type": "string", "description": "New title for the todo (optional)"},
+                    "assignee_ids": {"type": "array", "items": {"type": "integer"}, "description": "New User IDs to assign (optional)"},
+                    "description": {"type": "string", "description": "New todo description (optional)"},
+                    "due_on": {"type": "string", "description": "New due date YYYY-MM-DD (optional)"},
+                    "list_id": {"type": "integer", "description": "Move to this list/column ID (optional)"}
+                },
+                "required": ["task_id"],
+                "minProperties": 2
+            }
+        ),
+        Tool(
             name="get_tasks_lists",
             description="Get lists from a Hubstaff Tasks project (use project_id to find lists for creating todos)",
             inputSchema={
@@ -228,7 +245,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 return [TextContent(type="text", text=f"Error creating task: most likely this project does not have task integration enabled. Details: {str(e)}")]
 
         elif name == "create_todo":
-            token = await HubstaffClient()._get_access_token()
+            token = await client._get_access_token()
             tasks_client = HubstaffTasksClient(access_token=token)
             try:
                 todo = await tasks_client.create_task(
@@ -241,6 +258,29 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 task_id = todo.get("id")
                 subject = todo.get("subject", "Untitled")
                 return [TextContent(type="text", text=f"Created todo in Hubstaff Tasks:\nID: {task_id} | Subject: {subject}")]
+            finally:
+                await tasks_client.close()
+
+        elif name == "update_todo":
+            # Reject calls that provide no fields to update (fail fast)
+            update_fields = {k: v for k, v in arguments.items() if k != "task_id" and v is not None}
+            if not update_fields:
+                return [TextContent(type="text", text="Error: No update fields provided. Please specify at least one property to update (e.g. title, assignee_ids, description, due_on, or list_id).")]
+
+            token = await client._get_access_token()
+            tasks_client = HubstaffTasksClient(access_token=token)
+            try:
+                todo = await tasks_client.update_task(
+                    task_id=arguments["task_id"],
+                    subject=arguments.get("title"),
+                    description=arguments.get("description"),
+                    due_on=arguments.get("due_on"),
+                    assignee_ids=arguments.get("assignee_ids"),
+                    list_id=arguments.get("list_id")
+                )
+                task_id = todo.get("id")
+                subject = todo.get("subject", "Untitled")
+                return [TextContent(type="text", text=f"Updated todo in Hubstaff Tasks:\nID: {task_id} | Subject: {subject}")]
             finally:
                 await tasks_client.close()
         

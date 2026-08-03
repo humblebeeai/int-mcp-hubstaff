@@ -220,3 +220,38 @@ class HubstaffTasksClient:
         response.raise_for_status()
         result = response.json()
         return result.get("task", {})
+
+    async def update_task(
+        self,
+        task_id: int,
+        subject: str = None,
+        description: str = None,
+        due_on: str = None,
+        assignee_ids: list = None,
+        list_id: int = None
+    ) -> dict:
+        """Update an existing task in Hubstaff Tasks."""
+        form_data = {}
+        if subject is not None:
+            form_data["task[subject]"] = subject
+        if description is not None:
+            form_data["task[description]"] = description
+        if due_on is not None:
+            form_data["task[due_on]"] = due_on
+        if assignee_ids is not None:
+            form_data["task[assigned_to_id]"] = str(assignee_ids[0]) if len(assignee_ids) == 1 else assignee_ids
+        if list_id is not None:
+            form_data["task[list_id]"] = str(list_id)
+
+        if not form_data:
+            raise ValueError("No update fields provided")
+
+        headers = await self._get_headers()
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+        response = await self._client.patch(
+            f"/v1/tasks/{task_id}", data=form_data, headers=headers
+        )
+        response.raise_for_status()
+        result = response.json()
+        return result.get("task", {})
