@@ -220,3 +220,34 @@ class HubstaffTasksClient:
         response.raise_for_status()
         result = response.json()
         return result.get("task", {})
+
+    async def update_task(
+        self,
+        task_id: int,
+        subject: str = None,
+        description: str = None,
+        due_on: str = None,
+        assignee_ids: list = None,
+        list_id: int = None
+    ) -> dict:
+        """Update an existing task in Hubstaff Tasks."""
+        task_payload = {}
+        if subject is not None:
+            task_payload["subject"] = subject
+        if description is not None:
+            task_payload["description"] = description
+        if due_on is not None:
+            task_payload["due_on"] = due_on
+        if assignee_ids is not None:
+            task_payload["assignee_ids"] = assignee_ids
+        if list_id is not None:
+            task_payload["list_id"] = list_id
+            
+        payload = {"task": task_payload}
+        headers = await self._get_headers()
+        response = await self._client.patch(
+            f"/v1/tasks/{task_id}", json=payload, headers=headers
+        )
+        response.raise_for_status()
+        result = response.json()
+        return result.get("task", {})
