@@ -124,6 +124,7 @@ async def list_tools() -> list[types.Tool]:
                     "list_id": {"type": "integer", "description": "Move to this list/column ID (optional)"}
                 },
                 "required": ["task_id"],
+                "additionalProperties": False,
                 "minProperties": 2
             }
         ),
@@ -263,7 +264,14 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
         elif name == "update_todo":
             # Reject calls that provide no fields to update (fail fast)
-            update_fields = {k: v for k, v in arguments.items() if k != "task_id" and v is not None}
+            valid_keys = {"title", "description", "due_on", "assignee_ids", "list_id"}
+            update_fields = {}
+            for k, v in arguments.items():
+                if k in valid_keys and v is not None:
+                    if k == "assignee_ids" and not v:  # skip empty list
+                        continue
+                    update_fields[k] = v
+
             if not update_fields:
                 return [TextContent(type="text", text="Error: No update fields provided. Please specify at least one property to update (e.g. title, assignee_ids, description, due_on, or list_id).")]
 
@@ -272,11 +280,11 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             try:
                 todo = await tasks_client.update_task(
                     task_id=arguments["task_id"],
-                    subject=arguments.get("title"),
-                    description=arguments.get("description"),
-                    due_on=arguments.get("due_on"),
-                    assignee_ids=arguments.get("assignee_ids"),
-                    list_id=arguments.get("list_id")
+                    subject=update_fields.get("title"),
+                    description=update_fields.get("description"),
+                    due_on=update_fields.get("due_on"),
+                    assignee_ids=update_fields.get("assignee_ids"),
+                    list_id=update_fields.get("list_id")
                 )
                 task_id = todo.get("id")
                 subject = todo.get("subject", "Untitled")
@@ -346,6 +354,18 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
 async def handle_mcp(request):
     """Handle MCP requests."""
+    if config.mcp_api_key:
+        api_key = request.headers.get("x-mcp-api-key")
+        if api_key != config.mcp_api_key:
+            return JSONResponse({
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32001,
+                    "message": "Unauthorized: Invalid or missing X-MCP-API-Key header"
+                }
+            }, status_code=401)
+
     body = await request.body()
     import json
     data = json.loads(body)

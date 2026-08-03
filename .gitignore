@@ -34,3 +34,4 @@ Thumbs.db
 .dockerignore
 
 tokens.json
+PROPOSAL_CENTRAL_DEPLOYMENT.md

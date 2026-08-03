@@ -238,7 +238,7 @@ class HubstaffTasksClient:
             form_data["task[description]"] = description
         if due_on is not None:
             form_data["task[due_on]"] = due_on
-        if assignee_ids is not None:
+        if assignee_ids:
             form_data["task[assigned_to_id]"] = str(assignee_ids[0]) if len(assignee_ids) == 1 else assignee_ids
         if list_id is not None:
             form_data["task[list_id]"] = str(list_id)

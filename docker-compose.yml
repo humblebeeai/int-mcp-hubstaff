@@ -5,7 +5,7 @@ services:
     build: .
     container_name: hubstaff-mcp-server
     ports:
-      - "8000:8000"
+      - "25088:8000"
     env_file:
       - .env
     volumes:
