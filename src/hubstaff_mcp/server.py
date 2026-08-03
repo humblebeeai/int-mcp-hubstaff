@@ -377,8 +377,21 @@ async def handle_mcp(request):
 
     body = await request.body()
     import json
-    data = json.loads(body)
-    
+    try:
+        data = json.loads(body)
+    except Exception:
+        return JSONResponse({
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32700, "message": "Parse error: invalid JSON"}
+        }, status_code=400)
+    if not isinstance(data, dict):
+        return JSONResponse({
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32600, "message": "Invalid Request: JSON body must be an object"}
+        }, status_code=400)
+
     method = data.get("method")
     msg_id = data.get("id")
     
