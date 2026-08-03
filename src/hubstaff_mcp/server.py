@@ -157,8 +157,8 @@ async def list_tools() -> list[types.Tool]:
     ]
 
 
-async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-    client = HubstaffClient()
+async def call_tool(name: str, arguments: dict, api_key: str = "default") -> list[types.TextContent]:
+    client = HubstaffClient(api_key=api_key)
     client_created = True
     try:
         if name == "get_time_breakdown":
@@ -353,16 +353,25 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
 
 async def handle_mcp(request):
-    """Handle MCP requests."""
-    if config.mcp_api_key:
-        api_key = request.headers.get("x-mcp-api-key")
-        if api_key != config.mcp_api_key:
+    """Handle MCP requests.
+
+    The caller's Hubstaff PAT is sent in the ``X-MCP-API-Key`` header and is
+    used directly as their credential. Hubstaff's own API then enforces
+    project-level roles, so callers can only see/manage what their role allows.
+    """
+    # Prefer the caller's PAT from the header; fall back to the env token for
+    # the default/service account (keeps local testing simple).
+    api_key = request.headers.get("x-mcp-api-key")
+    if not api_key:
+        if config.hubstaff_token:
+            api_key = "default"
+        else:
             return JSONResponse({
                 "jsonrpc": "2.0",
                 "id": None,
                 "error": {
                     "code": -32001,
-                    "message": "Unauthorized: Invalid or missing X-MCP-API-Key header"
+                    "message": "Unauthorized: Missing X-MCP-API-Key header. Send your Hubstaff PAT as the API key."
                 }
             }, status_code=401)
 
@@ -391,7 +400,22 @@ async def handle_mcp(request):
             "result": {"tools": [t.model_dump(by_alias=True, exclude_none=True) for t in tools]}
         })
     elif method == "tools/call":
-        result = await call_tool(data["params"]["name"], data["params"].get("arguments", {}))
+        # Lazy validation: mint/refresh an access token from the PAT. If the
+        # PAT is invalid, we fail fast with 401 before touching any tool.
+        from .token_cache import get_access_token
+        try:
+            await get_access_token(api_key)
+        except Exception:
+            return JSONResponse({
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {
+                    "code": -32001,
+                    "message": "Unauthorized: Invalid or expired Hubstaff PAT in X-MCP-API-Key header"
+                }
+            }, status_code=401)
+
+        result = await call_tool(data["params"]["name"], data["params"].get("arguments", {}), api_key=api_key)
         return JSONResponse({
             "jsonrpc": "2.0",
             "id": msg_id,
