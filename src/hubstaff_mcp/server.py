@@ -1,5 +1,4 @@
-"""MCP Server for Hubstaff using low-level Server with HTTP."""
-from mcp.server import Server
+"""MCP Server for Hubstaff using Starlette HTTP endpoint for JSON-RPC routing."""
 from mcp.types import TextContent, Tool
 import mcp.types as types
 from starlette.applications import Starlette
@@ -12,10 +11,6 @@ from .config import config
 from . import formatters
 
 
-server = Server("hubstaff-mcp")
-
-
-@server.list_tools()
 async def list_tools() -> list[types.Tool]:
     return [
         Tool(
@@ -144,7 +139,6 @@ async def list_tools() -> list[types.Tool]:
     ]
 
 
-@server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     client = HubstaffClient()
     client_created = True
@@ -334,7 +328,7 @@ async def handle_mcp(request):
         return JSONResponse({
             "jsonrpc": "2.0",
             "id": msg_id,
-            "result": {"tools": [{"name": t.name, "inputSchema": t.inputSchema, "description": t.description} for t in tools]}
+            "result": {"tools": [t.model_dump(by_alias=True, exclude_none=True) for t in tools]}
         })
     elif method == "tools/call":
         result = await call_tool(data["params"]["name"], data["params"].get("arguments", {}))
