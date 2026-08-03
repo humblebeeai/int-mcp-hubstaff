@@ -71,6 +71,12 @@ async def get_access_token(api_key: str) -> str:
     # Otherwise the PAT itself is the refresh token.
     refresh_token = config.hubstaff_token if api_key == "default" else api_key
 
+    if not refresh_token:
+        raise Exception(
+            "No Hubstaff credential configured. Send a valid Hubstaff PAT in "
+            "the X-MCP-API-Key header."
+        )
+
     print(f"Refreshing access token for PAT: {refresh_token[:8]}...")
     async with httpx.AsyncClient() as client:
         try:

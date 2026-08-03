@@ -10,7 +10,7 @@ class Config(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
-    hubstaff_refresh_token: str
+    hubstaff_refresh_token: str | None = None
     hubstaff_organization_id: str
     hubstaff_tasks_organization_id: str | None = None
     hubstaff_api_base_url: str = "https://api.hubstaff.com"
