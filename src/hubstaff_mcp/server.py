@@ -9,6 +9,14 @@ import uvicorn
 from .hubstaff_client import HubstaffClient, HubstaffTasksClient
 from .config import config
 from . import formatters
+from .legacy_pat import ensure_legacy_grant, resolve_default_grant
+from .oauth import store
+from .oauth.bearer import build_www_authenticate, extract_bearer, resolve_bearer
+from .oauth import metadata as oauth_metadata
+from .oauth.register import register as oauth_register
+from .oauth.authorize import authorize as oauth_authorize
+from .oauth.callback import hubstaff_callback, consent as oauth_consent
+from .oauth.token import token as oauth_token, revoke as oauth_revoke
 
 
 async def list_tools() -> list[types.Tool]:
@@ -157,8 +165,8 @@ async def list_tools() -> list[types.Tool]:
     ]
 
 
-async def call_tool(name: str, arguments: dict, api_key: str = "default") -> list[types.TextContent]:
-    client = HubstaffClient(api_key=api_key)
+async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.TextContent]:
+    client = HubstaffClient(grant_id=grant_id)
     client_created = True
     try:
         if name == "get_time_breakdown":
@@ -352,28 +360,55 @@ async def call_tool(name: str, arguments: dict, api_key: str = "default") -> lis
             await client.close()
 
 
-async def handle_mcp(request):
-    """Handle MCP requests.
+def _unauthorized(msg_id, message: str) -> JSONResponse:
+    """401 with the RFC 9728 WWW-Authenticate header so clients start OAuth."""
+    return JSONResponse(
+        {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "error": {"code": -32001, "message": f"Unauthorized: {message}"},
+        },
+        status_code=401,
+        headers={"WWW-Authenticate": build_www_authenticate()},
+    )
 
-    The caller's Hubstaff PAT is sent in the ``X-MCP-API-Key`` header and is
-    used directly as their credential. Hubstaff's own API then enforces
-    project-level roles, so callers can only see/manage what their role allows.
+
+async def _resolve_grant_id(request):
+    """Resolve the caller to an internal grant id.
+
+    Order: (1) our OAuth Bearer token, (2) legacy X-MCP-API-Key PAT (if
+    enabled), (3) the env service-account default (if configured). Returns
+    ``None`` when the caller is unauthenticated/invalid.
     """
-    # Prefer the caller's PAT from the header; fall back to the env token for
-    # the default/service account (keeps local testing simple).
-    api_key = request.headers.get("x-mcp-api-key")
-    if not api_key:
-        if config.hubstaff_token:
-            api_key = "default"
-        else:
-            return JSONResponse({
-                "jsonrpc": "2.0",
-                "id": None,
-                "error": {
-                    "code": -32001,
-                    "message": "Unauthorized: Missing X-MCP-API-Key header. Send your Hubstaff PAT as the API key."
-                }
-            }, status_code=401)
+    # (1) OAuth broker Bearer token (the zero-paste path).
+    bearer = extract_bearer(request.headers.get("authorization"))
+    if bearer:
+        grant_id = await resolve_bearer(bearer)
+        return grant_id  # None here => invalid/expired token => 401
+
+    # (2) Legacy PAT sent as X-MCP-API-Key.
+    if config.allow_legacy_pat:
+        pat = request.headers.get("x-mcp-api-key")
+        if pat:
+            return await ensure_legacy_grant(pat)
+
+    # (3) Env service-account fallback (no header at all).
+    if config.hubstaff_token:
+        return await resolve_default_grant()
+
+    return None
+
+
+async def handle_mcp(request):
+    """Handle MCP JSON-RPC requests.
+
+    Authentication resolves the caller to an internal ``grant_id`` that maps to
+    a stored Hubstaff credential (an OAuth broker grant, or a legacy PAT wrapped
+    into a synthetic grant). Hubstaff's own API then enforces project-level
+    roles, so callers only see/manage what their role allows.
+    """
+    await store.init()  # idempotent; ensures schema exists before any DB access
+    grant_id = await _resolve_grant_id(request)
 
     body = await request.body()
     import json
@@ -394,7 +429,17 @@ async def handle_mcp(request):
 
     method = data.get("method")
     msg_id = data.get("id")
-    
+
+    # Auth gate: every method requires a resolved grant. A missing/invalid
+    # credential returns 401 + WWW-Authenticate, which is exactly what triggers
+    # a spec-compliant MCP client to begin the OAuth discovery + login flow.
+    if grant_id is None:
+        return _unauthorized(
+            msg_id,
+            "authentication required. Complete the OAuth login flow, or (legacy) "
+            "send your Hubstaff PAT in the X-MCP-API-Key header.",
+        )
+
     if method == "initialize":
         return JSONResponse({
             "jsonrpc": "2.0",
@@ -413,22 +458,24 @@ async def handle_mcp(request):
             "result": {"tools": [t.model_dump(by_alias=True, exclude_none=True) for t in tools]}
         })
     elif method == "tools/call":
-        # Lazy validation: mint/refresh an access token from the PAT. If the
-        # PAT is invalid, we fail fast with 401 before touching any tool.
-        from .token_cache import get_access_token
+        # Lazy validation: mint/refresh the Hubstaff access token for this
+        # grant. If the underlying credential is invalid/expired we fail fast
+        # with a 401 (WWW-Authenticate) so the client restarts the login flow.
+        from .token_cache import get_access_token, NeedsReauth
         try:
-            await get_access_token(api_key)
-        except Exception:
+            await get_access_token(grant_id)
+        except NeedsReauth:
+            return _unauthorized(
+                msg_id, "Hubstaff credential invalid or expired; re-authorize."
+            )
+        except Exception as e:
             return JSONResponse({
                 "jsonrpc": "2.0",
                 "id": msg_id,
-                "error": {
-                    "code": -32001,
-                    "message": "Unauthorized: Invalid or expired Hubstaff PAT in X-MCP-API-Key header"
-                }
-            }, status_code=401)
+                "error": {"code": -32603, "message": f"Internal error acquiring token: {e}"}
+            }, status_code=500)
 
-        result = await call_tool(data["params"]["name"], data["params"].get("arguments", {}), api_key=api_key)
+        result = await call_tool(data["params"]["name"], data["params"].get("arguments", {}), grant_id=grant_id)
         return JSONResponse({
             "jsonrpc": "2.0",
             "id": msg_id,
@@ -438,7 +485,29 @@ async def handle_mcp(request):
     return JSONResponse({"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": "Method not found"}})
 
 
-app = Starlette(routes=[Route("/mcp", handle_mcp, methods=["POST"])])
+routes = [
+    Route("/mcp", handle_mcp, methods=["POST"]),
+    # OAuth discovery metadata (unauthenticated).
+    Route(
+        "/.well-known/oauth-protected-resource",
+        oauth_metadata.protected_resource_metadata,
+        methods=["GET"],
+    ),
+    Route(
+        "/.well-known/oauth-authorization-server",
+        oauth_metadata.authorization_server_metadata,
+        methods=["GET"],
+    ),
+    # OAuth authorization server endpoints (broker to Hubstaff upstream).
+    Route("/register", oauth_register, methods=["POST"]),
+    Route("/authorize", oauth_authorize, methods=["GET"]),
+    Route("/token", oauth_token, methods=["POST"]),
+    Route("/revoke", oauth_revoke, methods=["POST"]),
+    Route("/oauth/hubstaff/callback", hubstaff_callback, methods=["GET"]),
+    Route("/oauth/consent", oauth_consent, methods=["POST"]),
+]
+
+app = Starlette(routes=routes)
 
 
 if __name__ == "__main__":
@@ -447,9 +516,6 @@ if __name__ == "__main__":
     debug_mode = os.getenv("DEBUG", "false").lower() == "true"
     
     if debug_mode:
-        from .token_cache import load_tokens
-        import time
-        
         print("🚀 Starting Hubstaff MCP Server in DEBUG mode")
         print("=" * 60)
         print(f"📊 Config:")
@@ -458,22 +524,16 @@ if __name__ == "__main__":
         print(f"   Tasks Org ID: {config.hubstaff_tasks_org_id}")
         print(f"   Port: {config.port}")
         print(f"   Debug: {debug_mode}")
-        
-        # Show token information
-        from .token_cache import load_tokens
-        import time
-        
-        tokens = load_tokens()
+
         print("=" * 60)
-        print("🔐 Token Status:")
-        print(f"   Token file exists: {os.path.exists('tokens.json')}")
-        print(f"   Has access token: {bool(tokens.get('access_token'))}")
-        print(f"   Has refresh token: {bool(tokens.get('refresh_token'))}")
-        if tokens.get("cached_at"):
-            age_hours = (time.time() - tokens["cached_at"]) / 3600
-            print(f"   Access token age: {age_hours:.1f}h")
-            print(f"   Token expired: {age_hours >= 144}")  # 6 days
-        
+        print("🔐 Auth Status:")
+        print(f"   OAuth broker configured: {config.oauth_configured}")
+        print(f"   Public base URL: {config.public_base_url}")
+        print(f"   Resource URI: {config.resource_uri}")
+        print(f"   OAuth DB path: {config.oauth_db_path}")
+        print(f"   Legacy PAT allowed: {config.allow_legacy_pat}")
+        print(f"   Service-account fallback: {bool(config.hubstaff_token)}")
+
         print("=" * 60)
         print("🔧 Available MCP Tools:")
         
@@ -511,4 +571,14 @@ if __name__ == "__main__":
         print('     -d \'{"method": "tools/call", "params": {"name": "list_team_members"}}\'')
         print("=" * 60)
     
-    uvicorn.run(app, host="0.0.0.0", port=config.port)
+    # proxy_headers + forwarded_allow_ips: trust the reverse proxy's
+    # X-Forwarded-* so the app sees the real client IP/scheme. OAuth metadata
+    # URLs are built from config.public_base_url (not the request), so they stay
+    # correct regardless, but this keeps logging/security context accurate.
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=config.port,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )

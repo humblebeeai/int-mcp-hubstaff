@@ -1,152 +1,139 @@
-"""Token cache keyed by Hubstaff PAT.
+"""Access-token resolution for Hubstaff, keyed by internal grant id.
 
-Each caller's Hubstaff Personal Access Token (PAT) is sent as the
-``X-MCP-API-Key`` header. The PAT doubles as the long-lived refresh token
-Hubstaff uses to mint short-lived access tokens, so we key the access-token
-cache by the PAT itself.
+Each caller is represented by an internal ``grant_id`` that maps (in the OAuth
+store) to that user's Hubstaff refresh/access token pair. This module mints and
+refreshes the short-lived Hubstaff *access* token from the stored refresh token.
+
+Two credential shapes flow through here:
+
+- **OAuth broker grants** (the zero-paste path): the refresh happens against the
+  Hubstaff token endpoint using HTTP Basic client credentials (our one upstream
+  OAuth app). Hubstaff rotates the refresh token on every grant, so we persist
+  the rotated ``refresh_token`` back into the grant row — dropping it would
+  brick the grant.
+
+- **Legacy PAT grants** (``allow_legacy_pat``): the caller's Personal Access
+  Token is itself the refresh token and no client credentials are sent. These
+  are handled by :mod:`.legacy_pat` which calls back into
+  :func:`refresh_with_refresh_token` with ``use_client_auth=False``.
+
+A per-``grant_id`` asyncio lock serializes refreshes so concurrent requests for
+the same grant don't race (Hubstaff rejects overlapping refresh_token grants
+with a 400).
 """
 import asyncio
-import json
-import os
 import time
+
 import httpx
+
 from .config import config
+from .oauth import store
 
+# Refresh a little before the real expiry to absorb clock skew / latency.
+_EXPIRY_SKEW_SECONDS = 60
 
-# Per-PAT locks serialize token refresh so concurrent requests for the same
-# PAT don't race (Hubstaff rejects overlapping refresh_token grants with 400).
+# Per-grant locks serialize token refresh so concurrent requests for the same
+# grant don't race (Hubstaff rejects overlapping refresh_token grants with 400).
 _locks: dict[str, asyncio.Lock] = {}
 
 
-def _get_lock(api_key: str) -> asyncio.Lock:
-    if api_key not in _locks:
-        _locks[api_key] = asyncio.Lock()
-    return _locks[api_key]
+def _get_lock(grant_id: str) -> asyncio.Lock:
+    if grant_id not in _locks:
+        _locks[grant_id] = asyncio.Lock()
+    return _locks[grant_id]
 
 
-def load_tokens():
-    """Load cached access tokens from JSON file."""
-    if not os.path.exists("tokens.json"):
-        return {}
-    if os.path.isdir("tokens.json"):
-        print(
-            "Warning: tokens.json is a directory (host file was missing when the "
-            "container started). Token cache disabled; remove it and recreate the "
-            "file, then restart."
-        )
-        return {}
-    try:
-        with open("tokens.json", "r") as f:
-            return json.load(f)
-    except:
-        return {}
+class NeedsReauth(Exception):
+    """Raised when a grant's refresh token is invalid/expired.
 
-
-def save_tokens(tokens):
-    """Save cached access tokens to JSON file."""
-    try:
-        with open("tokens.json", "w") as f:
-            json.dump(tokens, f, indent=2)
-    except Exception as e:
-        print(f"Could not save tokens: {e}")
-
-
-def get_user_tokens(api_key: str) -> dict:
-    """Get cached access token for a given PAT."""
-    all_tokens = load_tokens()
-    # Backward compat: legacy single-user flat format
-    if "access_token" in all_tokens or "refresh_token" in all_tokens:
-        return all_tokens
-    return all_tokens.get(api_key, {})
-
-
-def save_user_tokens(api_key: str, user_tokens: dict):
-    """Save access token for a given PAT."""
-    all_tokens = load_tokens()
-    # Backward compat: legacy single-user flat format
-    if "access_token" in all_tokens or "refresh_token" in all_tokens:
-        all_tokens = {}
-    all_tokens[api_key] = user_tokens
-    save_tokens(all_tokens)
-
-
-async def get_access_token(api_key: str) -> str:
-    """Get a valid access token for a PAT, refreshing if needed.
-
-    The PAT is used directly as the refresh token (Hubstaff treats Personal
-    Access Tokens as refresh tokens). Access tokens are valid for 6 days.
-    A per-PAT lock serializes concurrent refreshes for the same key.
+    Surfaced up to the transport layer as a 401 so the client restarts the
+    browser OAuth flow (or the user re-issues a PAT).
     """
-    async with _get_lock(api_key):
-        user_tokens = get_user_tokens(api_key)
 
-        access_token = user_tokens.get("access_token")
-        cached_at = user_tokens.get("cached_at", 0)
-        current_time = time.time()
 
-        # Token is valid for 6 days
-        if access_token and (current_time - cached_at) < 6 * 24 * 3600:
+async def refresh_with_refresh_token(
+    refresh_token: str, *, use_client_auth: bool
+) -> dict:
+    """Exchange a Hubstaff refresh token for a fresh access token.
+
+    Returns the raw Hubstaff token response (contains ``access_token``,
+    ``refresh_token``, ``expires_in``). Raises :class:`NeedsReauth` on
+    invalid_grant, or ``httpx.HTTPError`` on transport failure.
+    """
+    data = {"grant_type": "refresh_token", "refresh_token": refresh_token}
+    auth = None
+    if use_client_auth:
+        # Broker path: authenticate as our upstream OAuth app.
+        auth = httpx.BasicAuth(config.hubstaff_client_id, config.hubstaff_client_secret)
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{config.hubstaff_account_base_url}/access_tokens",
+            data=data,
+            auth=auth,
+        )
+
+    if response.status_code == 200:
+        return response.json()
+    if response.status_code in (400, 401, 403):
+        # invalid_grant / expired / revoked refresh token — unrecoverable.
+        raise NeedsReauth(
+            f"Hubstaff refused the refresh token (HTTP {response.status_code})"
+        )
+    response.raise_for_status()
+    raise NeedsReauth(f"Unexpected token endpoint status {response.status_code}")
+
+
+async def get_access_token(grant_id: str) -> str:
+    """Return a valid Hubstaff access token for ``grant_id``, refreshing if stale.
+
+    A per-grant lock serializes concurrent refreshes for the same grant.
+    """
+    async with _get_lock(grant_id):
+        grant = await store.get_grant(grant_id)
+        if grant is None:
+            raise NeedsReauth(f"Unknown grant: {grant_id[:8]}...")
+        if grant.get("needs_reauth"):
+            raise NeedsReauth(f"Grant needs re-authorization: {grant_id[:8]}...")
+
+        access_token = grant.get("hubstaff_access_token")
+        expires_at = grant.get("hubstaff_access_expires_at") or 0
+        now = time.time()
+
+        if access_token and now < (expires_at - _EXPIRY_SKEW_SECONDS):
             return access_token
 
-        # For the reserved "default" key (no header sent), use the env token.
-        # Otherwise the PAT itself is the refresh token.
-        refresh_token = config.hubstaff_token if api_key == "default" else api_key
-
+        refresh_token = grant.get("hubstaff_refresh_token")
         if not refresh_token:
-            raise Exception(
-                "No Hubstaff credential configured. Send a valid Hubstaff PAT in "
-                "the X-MCP-API-Key header."
+            await store.mark_needs_reauth(grant_id)
+            raise NeedsReauth(f"Grant has no refresh token: {grant_id[:8]}...")
+
+        # Legacy PAT grants refresh WITHOUT client auth (the PAT is itself the
+        # refresh token); broker grants authenticate as our upstream OAuth app.
+        use_client_auth = not grant.get("is_legacy_pat")
+        print(f"Refreshing Hubstaff access token for grant {grant_id[:8]}...")
+        try:
+            token_data = await refresh_with_refresh_token(
+                refresh_token, use_client_auth=use_client_auth
             )
+        except NeedsReauth:
+            await store.mark_needs_reauth(grant_id)
+            raise
+        except httpx.HTTPError as e:
+            # Transient transport error — don't brick the grant, just fail this call.
+            raise Exception(f"Error refreshing Hubstaff token: {e}")
 
-        print(f"Refreshing access token for PAT: {refresh_token[:8]}...")
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    "https://account.hubstaff.com/access_tokens",
-                    data={
-                        "grant_type": "refresh_token",
-                        "refresh_token": refresh_token,
-                    },
-                )
+        new_access = token_data["access_token"]
+        # Hubstaff rotates the refresh token; persist it or the grant bricks.
+        new_refresh = token_data.get("refresh_token", refresh_token)
+        expires_in = token_data.get("expires_in", 24 * 3600)
+        new_expires_at = time.time() + float(expires_in)
 
-                if response.status_code == 200:
-                    data = response.json()
-
-                    new_tokens = {
-                        "access_token": data["access_token"],
-                        "cached_at": current_time,
-                    }
-                    save_user_tokens(api_key, new_tokens)
-                    print(f"Token refreshed successfully for PAT: {refresh_token[:8]}...")
-                    return data["access_token"]
-                else:
-                    print(f"Token refresh failed: {response.status_code}")
-                    if response.status_code in (401, 403):
-                        raise Exception(
-                            "Invalid or expired Hubstaff PAT. Ask the user to create a "
-                            "valid Personal Access Token at account.hubstaff.com."
-                        )
-
-            except httpx.HTTPError as e:
-                print(f"Error refreshing token: {e}")
-
-        raise Exception(f"No valid access token available for PAT: {api_key[:8]}...")
-
-
-def initialize_tokens():
-    """Migrate any legacy single-user tokens.json to the PAT-keyed format.
-
-    The legacy format is stored under a reserved ``default`` key so existing
-    setups keep working, and the key is reused as the PAT for compatibility.
-    """
-    if not os.path.exists("tokens.json"):
-        return
-    all_tokens = load_tokens()
-    if "access_token" in all_tokens or "refresh_token" in all_tokens:
-        print("Migrating legacy tokens.json to PAT-keyed format...")
-        # Keep under "default"; callers without a header will use the env token
-        save_tokens({"default": all_tokens})
-
-
-# Initialize on import
-initialize_tokens()
+        await store.update_grant_tokens(
+            grant_id,
+            access_token=new_access,
+            access_expires_at=new_expires_at,
+            refresh_token=new_refresh,
+        )
+        print(f"Hubstaff token refreshed for grant {grant_id[:8]}...")
+        return new_access
