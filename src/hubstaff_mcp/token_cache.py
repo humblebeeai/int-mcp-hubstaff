@@ -4,18 +4,10 @@ Each caller is represented by an internal ``grant_id`` that maps (in the OAuth
 store) to that user's Hubstaff refresh/access token pair. This module mints and
 refreshes the short-lived Hubstaff *access* token from the stored refresh token.
 
-Two credential shapes flow through here:
-
-- **OAuth broker grants** (the zero-paste path): the refresh happens against the
-  Hubstaff token endpoint using HTTP Basic client credentials (our one upstream
-  OAuth app). Hubstaff rotates the refresh token on every grant, so we persist
-  the rotated ``refresh_token`` back into the grant row — dropping it would
-  brick the grant.
-
-- **Legacy PAT grants** (``allow_legacy_pat``): the caller's Personal Access
-  Token is itself the refresh token and no client credentials are sent. These
-  are handled by :mod:`.legacy_pat` which calls back into
-  :func:`refresh_with_refresh_token` with ``use_client_auth=False``.
+The refresh happens against the Hubstaff token endpoint using HTTP Basic client
+credentials (our one upstream OAuth app). Hubstaff rotates the refresh token on
+every grant, so we persist the rotated ``refresh_token`` back into the grant row
+— dropping it would brick the grant.
 
 A per-``grant_id`` asyncio lock serializes refreshes so concurrent requests for
 the same grant don't race (Hubstaff rejects overlapping refresh_token grants
@@ -51,26 +43,21 @@ class NeedsReauth(Exception):
     """
 
 
-async def refresh_with_refresh_token(
-    refresh_token: str, *, use_client_auth: bool
-) -> dict:
+async def refresh_with_refresh_token(refresh_token: str) -> dict:
     """Exchange a Hubstaff refresh token for a fresh access token.
 
+    Authenticates as our upstream OAuth app (HTTP Basic client credentials).
     Returns the raw Hubstaff token response (contains ``access_token``,
     ``refresh_token``, ``expires_in``). Raises :class:`NeedsReauth` on
     invalid_grant, or ``httpx.HTTPError`` on transport failure.
     """
-    data = {"grant_type": "refresh_token", "refresh_token": refresh_token}
-    auth = None
-    if use_client_auth:
-        # Broker path: authenticate as our upstream OAuth app.
-        auth = httpx.BasicAuth(config.hubstaff_client_id, config.hubstaff_client_secret)
-
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{config.hubstaff_account_base_url}/access_tokens",
-            data=data,
-            auth=auth,
+            data={"grant_type": "refresh_token", "refresh_token": refresh_token},
+            auth=httpx.BasicAuth(
+                config.hubstaff_client_id, config.hubstaff_client_secret
+            ),
         )
 
     if response.status_code == 200:
@@ -108,14 +95,9 @@ async def get_access_token(grant_id: str) -> str:
             await store.mark_needs_reauth(grant_id)
             raise NeedsReauth(f"Grant has no refresh token: {grant_id[:8]}...")
 
-        # Legacy PAT grants refresh WITHOUT client auth (the PAT is itself the
-        # refresh token); broker grants authenticate as our upstream OAuth app.
-        use_client_auth = not grant.get("is_legacy_pat")
         print(f"Refreshing Hubstaff access token for grant {grant_id[:8]}...")
         try:
-            token_data = await refresh_with_refresh_token(
-                refresh_token, use_client_auth=use_client_auth
-            )
+            token_data = await refresh_with_refresh_token(refresh_token)
         except NeedsReauth:
             await store.mark_needs_reauth(grant_id)
             raise

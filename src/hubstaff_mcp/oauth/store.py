@@ -70,7 +70,6 @@ CREATE TABLE IF NOT EXISTS grants (
     hubstaff_access_expires_at REAL,
     scope TEXT,
     downstream_client_id TEXT,
-    is_legacy_pat INTEGER NOT NULL DEFAULT 0,
     needs_reauth INTEGER NOT NULL DEFAULT 0,
     created_at REAL NOT NULL
 );
@@ -305,10 +304,10 @@ def _create_grant_sync(row: dict) -> None:
         conn.execute(
             "INSERT OR REPLACE INTO grants (grant_id, hubstaff_user_id, "
             "hubstaff_refresh_token, hubstaff_access_token, hubstaff_access_expires_at, "
-            "scope, downstream_client_id, is_legacy_pat, needs_reauth, created_at) "
+            "scope, downstream_client_id, needs_reauth, created_at) "
             "VALUES (:grant_id, :hubstaff_user_id, :hubstaff_refresh_token, "
             ":hubstaff_access_token, :hubstaff_access_expires_at, :scope, "
-            ":downstream_client_id, :is_legacy_pat, 0, :created_at)",
+            ":downstream_client_id, 0, :created_at)",
             row,
         )
         conn.commit()
@@ -324,7 +323,6 @@ async def create_grant(
     hubstaff_user_id: Optional[str] = None,
     scope: Optional[str] = None,
     downstream_client_id: Optional[str] = None,
-    is_legacy_pat: bool = False,
 ) -> None:
     await _run(
         _create_grant_sync,
@@ -336,7 +334,6 @@ async def create_grant(
             "hubstaff_access_expires_at": hubstaff_access_expires_at,
             "scope": scope,
             "downstream_client_id": downstream_client_id,
-            "is_legacy_pat": 1 if is_legacy_pat else 0,
             "created_at": time.time(),
         },
     )

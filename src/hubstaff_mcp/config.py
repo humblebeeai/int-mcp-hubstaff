@@ -10,7 +10,6 @@ class Config(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
-    hubstaff_refresh_token: str | None = None
     hubstaff_organization_id: str
     hubstaff_tasks_organization_id: str | None = None
     hubstaff_api_base_url: str = "https://api.hubstaff.com"
@@ -19,7 +18,7 @@ class Config(BaseSettings):
 
     # --- OAuth broker (zero-paste per-user auth) ---------------------------
     # Credentials for the single upstream Hubstaff OAuth app that every user is
-    # federated through. Required for the OAuth flow; unset in legacy PAT mode.
+    # federated through. Required — OAuth is the only supported auth method.
     hubstaff_client_id: str | None = None
     hubstaff_client_secret: str | None = None
 
@@ -47,14 +46,6 @@ class Config(BaseSettings):
     hubstaff_scopes: str = (
         "openid profile email hubstaff:read hubstaff:write tasks:read tasks:write"
     )
-
-    # Keep the legacy X-MCP-API-Key PAT path working alongside Bearer OAuth
-    # during migration. Flip to false at cutover.
-    allow_legacy_pat: bool = True
-
-    @property
-    def hubstaff_token(self) -> str:
-        return self.hubstaff_refresh_token
 
     @property
     def resource_uri(self) -> str:

@@ -9,7 +9,6 @@ import uvicorn
 from .hubstaff_client import HubstaffClient, HubstaffTasksClient
 from .config import config
 from . import formatters
-from .legacy_pat import ensure_legacy_grant, resolve_default_grant
 from .oauth import store
 from .oauth.bearer import build_www_authenticate, extract_bearer, resolve_bearer
 from .oauth import metadata as oauth_metadata
@@ -374,38 +373,24 @@ def _unauthorized(msg_id, message: str) -> JSONResponse:
 
 
 async def _resolve_grant_id(request):
-    """Resolve the caller to an internal grant id.
+    """Resolve the caller to an internal grant id from their OAuth Bearer token.
 
-    Order: (1) our OAuth Bearer token, (2) legacy X-MCP-API-Key PAT (if
-    enabled), (3) the env service-account default (if configured). Returns
-    ``None`` when the caller is unauthenticated/invalid.
+    Returns ``None`` when the caller is unauthenticated or the token is
+    invalid/expired, which the caller turns into a 401 + WWW-Authenticate.
     """
-    # (1) OAuth broker Bearer token (the zero-paste path).
     bearer = extract_bearer(request.headers.get("authorization"))
-    if bearer:
-        grant_id = await resolve_bearer(bearer)
-        return grant_id  # None here => invalid/expired token => 401
-
-    # (2) Legacy PAT sent as X-MCP-API-Key.
-    if config.allow_legacy_pat:
-        pat = request.headers.get("x-mcp-api-key")
-        if pat:
-            return await ensure_legacy_grant(pat)
-
-    # (3) Env service-account fallback (no header at all).
-    if config.hubstaff_token:
-        return await resolve_default_grant()
-
-    return None
+    if not bearer:
+        return None
+    return await resolve_bearer(bearer)
 
 
 async def handle_mcp(request):
     """Handle MCP JSON-RPC requests.
 
-    Authentication resolves the caller to an internal ``grant_id`` that maps to
-    a stored Hubstaff credential (an OAuth broker grant, or a legacy PAT wrapped
-    into a synthetic grant). Hubstaff's own API then enforces project-level
-    roles, so callers only see/manage what their role allows.
+    Authentication resolves the caller's OAuth Bearer token to an internal
+    ``grant_id`` that maps to that user's stored Hubstaff credential. Hubstaff's
+    own API then enforces project-level roles, so callers only see/manage what
+    their role allows.
     """
     await store.init()  # idempotent; ensures schema exists before any DB access
     grant_id = await _resolve_grant_id(request)
@@ -436,8 +421,8 @@ async def handle_mcp(request):
     if grant_id is None:
         return _unauthorized(
             msg_id,
-            "authentication required. Complete the OAuth login flow, or (legacy) "
-            "send your Hubstaff PAT in the X-MCP-API-Key header.",
+            "authentication required. Complete the OAuth login flow to connect "
+            "your Hubstaff account.",
         )
 
     if method == "initialize":
@@ -531,8 +516,6 @@ if __name__ == "__main__":
         print(f"   Public base URL: {config.public_base_url}")
         print(f"   Resource URI: {config.resource_uri}")
         print(f"   OAuth DB path: {config.oauth_db_path}")
-        print(f"   Legacy PAT allowed: {config.allow_legacy_pat}")
-        print(f"   Service-account fallback: {bool(config.hubstaff_token)}")
 
         print("=" * 60)
         print("🔧 Available MCP Tools:")

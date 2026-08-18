@@ -16,7 +16,6 @@ import pytest
 
 # Configure the app for a self-contained, offline test run BEFORE importing it.
 os.environ.setdefault("HUBSTAFF_ORGANIZATION_ID", "542238")
-os.environ["HUBSTAFF_REFRESH_TOKEN"] = ""            # disable service-account fallback
 os.environ["HUBSTAFF_CLIENT_ID"] = "up_client"
 os.environ["HUBSTAFF_CLIENT_SECRET"] = "up_secret"
 os.environ["PUBLIC_BASE_URL"] = "https://hubstaff.hbai.dev"
