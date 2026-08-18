@@ -9,5 +9,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ./tokens.json:/app/tokens.json
+      # Directory mount (not a single file): the OAuth broker uses SQLite with
+      # WAL sidecar files (oauth.db, oauth.db-wal, oauth.db-shm), which cannot
+      # live under a single-file bind mount. Pre-create ./data owned by the
+      # container's mcp user before the first `docker compose up`.
+      - ./data:/app/data
     restart: unless-stopped

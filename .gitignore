@@ -23,6 +23,12 @@ venv.bak/
 # Token cache
 tokens.json
 
+# OAuth broker persistence (contains live Hubstaff refresh tokens — never commit)
+data/
+oauth.db
+oauth.db-wal
+oauth.db-shm
+
 # Logs
 *.log
 

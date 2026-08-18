@@ -8,14 +8,14 @@ from .token_cache import get_access_token
 class HubstaffClient:
     """Simple Hubstaff API client."""
 
-    def __init__(self, api_key: str = "default"):
-        self.api_key = api_key
+    def __init__(self, grant_id: str):
+        self.grant_id = grant_id
         self._default_user_id = None
         self._api_client = httpx.AsyncClient(base_url=config.base_url, timeout=30.0)
 
     async def _get_access_token(self) -> str:
         """Get valid access token."""
-        return await get_access_token(self.api_key)
+        return await get_access_token(self.grant_id)
 
     async def _get_headers(self) -> dict:
         """Get headers with authorization."""
