@@ -51,10 +51,19 @@ Transport **Streamable HTTP** → URL `https://hubstaff.hbai.dev/mcp` → Connec
 ## Available tools
 Time & reporting: `get_time_breakdown`, `get_project_hours`, `get_team_time_summary`,
 `list_team_members`, `list_projects`, `list_todos`.
-Tasks (Hubstaff Tasks): `create_task`, `create_todo`, `update_todo`,
-`get_tasks_lists`, `list_tasks_projects`, `list_tasks_members`.
+Tasks (Hubstaff Tasks): `create_todo`, `update_todo`, `complete_todo`,
+`get_tasks_lists`, `list_tasks_projects`, `list_tasks_members`, `create_task`.
 
-Tip: call `list_team_members` first to get valid user IDs for the reporting tools.
+Tips:
+- Reporting: call `list_team_members` first to get valid user IDs.
+- **Create a todo in one call:** `create_todo(project="INT: LumioHub", title="…",
+  assignee_ids=[<id>])` — `project` accepts a project **name** or id and resolves
+  the Tasks project + default "To Do" list automatically. `assignee_ids` accept
+  either `list_team_members` or `list_tasks_members` ids (mapped by email).
+- `create_task` (main API) only works for non-integrated projects; for projects
+  whose to-dos live in Hubstaff Tasks (most `INT:`/`EXT:` projects), use `create_todo`.
+- Mark done with `complete_todo(task_id)`. The Tasks API has no delete and can't
+  move a todo between lists — complete is the way to retire one.
 
 ## Health / status
 - `https://hubstaff.hbai.dev/health` → `{"status":"ok", ...}` (used by Uptime Kuma).
