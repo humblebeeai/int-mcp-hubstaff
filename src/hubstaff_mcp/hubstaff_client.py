@@ -5,6 +5,24 @@ from .config import config
 from .token_cache import get_access_token
 
 
+def _raise_with_body(response: httpx.Response) -> None:
+    """Raise including Hubstaff's error body so callers see the real reason.
+
+    ``httpx.raise_for_status()`` only reports the status code; Hubstaff puts the
+    actionable message (e.g. "project is integrated", wrong org) in the body.
+    """
+    if response.is_error:
+        try:
+            body = response.text[:800]
+        except Exception:
+            body = "<unreadable body>"
+        raise httpx.HTTPStatusError(
+            f"{response.status_code} {response.reason_phrase} for {response.request.url} :: {body}",
+            request=response.request,
+            response=response,
+        )
+
+
 class HubstaffClient:
     """Simple Hubstaff API client."""
 
@@ -26,7 +44,7 @@ class HubstaffClient:
         """Make GET request."""
         headers = await self._get_headers()
         response = await self._api_client.get(path, params=params, headers=headers)
-        response.raise_for_status()
+        _raise_with_body(response)
         return response.json()
 
     async def post(self, path: str, data: dict = None, json: dict = None) -> dict:
@@ -35,7 +53,7 @@ class HubstaffClient:
         response = await self._api_client.post(
             path, data=data, json=json, headers=headers
         )
-        response.raise_for_status()
+        _raise_with_body(response)
         return response.json()
 
     async def close(self):
@@ -168,23 +186,39 @@ class HubstaffTasksClient:
     async def get(self, path: str, params: dict = None) -> dict:
         headers = await self._get_headers()
         response = await self._client.get(path, params=params, headers=headers)
-        response.raise_for_status()
+        _raise_with_body(response)
         return response.json()
 
     async def post(self, path: str, data: dict) -> dict:
         headers = await self._get_headers()
         response = await self._client.post(path, data=data, headers=headers)
-        response.raise_for_status()
+        _raise_with_body(response)
         return response.json()
 
     async def close(self):
         await self._client.aclose()
 
     async def get_projects(self, status: str = "all") -> list:
-        org_id = config.hubstaff_tasks_org_id or config.hubstaff_org_id
-        data = await self.get(f"/v1/organizations/{org_id}/projects?status={status}")
-        projects = data.get("projects", [])
-        return projects
+        # Use the org-less discovery endpoint ("all projects accessible to the
+        # current user") instead of /organizations/{id}/projects — the latter
+        # 403s when the configured tasks org id is wrong or the user isn't a
+        # member of it. Each project carries its own organization_id.
+        params = {} if status == "all" else {"status": status}
+        data = await self.get("/v1/projects", params=params)
+        return data.get("projects", [])
+
+    async def find_project_by_name(self, name: str) -> dict | None:
+        """Resolve a Tasks project by (case-insensitive) name.
+
+        Lets callers pass a human project name (or the name from the main-API
+        `list_projects`) instead of a Tasks-specific project id.
+        """
+        projects = await self.get_projects(status="active")
+        target = name.strip().lower()
+        for p in projects:
+            if (p.get("name") or "").strip().lower() == target:
+                return p
+        return None
 
     async def get_lists(self, project_id: int) -> list:
         data = await self.get(f"/v1/projects/{project_id}/lists")
@@ -218,7 +252,7 @@ class HubstaffTasksClient:
         response = await self._client.post(
             f"/v1/lists/{list_id}/tasks", data=form_data, headers=headers
         )
-        response.raise_for_status()
+        _raise_with_body(response)
         result = response.json()
         return result.get("task", {})
 
@@ -253,6 +287,6 @@ class HubstaffTasksClient:
         response = await self._client.patch(
             f"/v1/tasks/{task_id}", data=form_data, headers=headers
         )
-        response.raise_for_status()
+        _raise_with_body(response)
         result = response.json()
         return result.get("task", {})

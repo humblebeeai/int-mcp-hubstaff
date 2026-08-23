@@ -250,7 +250,13 @@ async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.Tex
                 project_name = next((p["name"] for p in projects if p["id"] == arguments["project_id"]), f"Project {arguments['project_id']}")
                 return [TextContent(type="text", text=formatters.format_created_todo(todo, project_name))]
             except Exception as e:
-                return [TextContent(type="text", text=f"Error creating task: most likely this project does not have task integration enabled. Details: {str(e)}")]
+                return [TextContent(type="text", text=(
+                    "Error creating task via the main Hubstaff API.\n"
+                    "If this project's to-dos are managed by Hubstaff Tasks (or a "
+                    "3rd-party tool), the main API rejects direct creation — use "
+                    "create_todo instead.\n"
+                    f"Hubstaff response: {str(e)}"
+                ))]
 
         elif name == "create_todo":
             token = await client._get_access_token()
