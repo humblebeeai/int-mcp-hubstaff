@@ -41,3 +41,5 @@ Thumbs.db
 
 tokens.json
 PROPOSAL_CENTRAL_DEPLOYMENT.md
+# Local Claude Code MCP connector config
+.mcp.json

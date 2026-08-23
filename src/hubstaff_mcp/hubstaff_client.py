@@ -224,8 +224,21 @@ class HubstaffTasksClient:
         data = await self.get(f"/v1/projects/{project_id}/lists")
         return data.get("lists", [])
 
+    async def resolve_org_id(self) -> int | None:
+        """Discover the current user's Tasks org id.
+
+        The configured HUBSTAFF_TASKS_ORGANIZATION_ID is unreliable (it 403s
+        with "not authorized" when the user isn't a member), so ask the Tasks
+        API which orgs this user actually belongs to.
+        """
+        data = await self.get("/v1/organizations")
+        orgs = data.get("organizations", [])
+        return orgs[0]["id"] if orgs else None
+
     async def get_members(self) -> list:
-        org_id = config.hubstaff_tasks_org_id or config.hubstaff_org_id
+        org_id = await self.resolve_org_id()
+        if not org_id:
+            return []
         data = await self.get(f"/v1/organizations/{org_id}/members")
         return data.get("members", [])
 

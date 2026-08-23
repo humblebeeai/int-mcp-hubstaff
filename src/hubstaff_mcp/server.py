@@ -104,17 +104,18 @@ async def list_tools() -> list[types.Tool]:
         ),
         Tool(
             name="create_todo",
-            description="Create a new todo in Hubstaff Tasks (for projects WITH task integration like Jira/Asana)",
+            description="Create a todo in Hubstaff Tasks. Pass `project` (a project name like 'INT: LumioHub', or a project id from list_projects/list_tasks_projects) and it resolves the Tasks project + default list automatically. Use `list_id` only to target a specific list/column.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "list_id": {"type": "integer", "description": "List ID in Hubstaff Tasks - REQUIRED"},
+                    "project": {"type": "string", "description": "Project name (e.g. 'INT: LumioHub') or project id. Resolves to the Tasks project and its default list. Provide this OR list_id."},
+                    "list_id": {"type": "integer", "description": "Explicit Hubstaff Tasks list/column id (optional; overrides `project`)."},
                     "title": {"type": "string", "description": "Todo title - REQUIRED"},
-                    "assignee_ids": {"type": "array", "items": {"type": "integer"}, "description": "User IDs to assign - REQUIRED"},
+                    "assignee_ids": {"type": "array", "items": {"type": "integer"}, "description": "User IDs to assign (from list_team_members)."},
                     "description": {"type": "string", "description": "Todo description (optional)"},
                     "due_on": {"type": "string", "description": "Due date YYYY-MM-DD (optional)"}
                 },
-                "required": ["list_id", "title"]
+                "required": ["title"]
             }
         ),
         Tool(
@@ -162,6 +163,46 @@ async def list_tools() -> list[types.Tool]:
             inputSchema={"type": "object", "properties": {}}
         )
     ]
+
+
+async def _resolve_tasks_project(main_client, tasks_client, proj: str):
+    """Resolve a project name or id to a Hubstaff Tasks project dict {id, name}.
+
+    Handles the id-space trap: a numeric value is tried first as a Tasks project
+    id, then as a main-API project id (mapped to the Tasks project by name).
+    """
+    proj = proj.strip()
+    if proj.isdigit():
+        pid = int(proj)
+        # (a) maybe it's already a Tasks project id
+        try:
+            await tasks_client.get_lists(pid)
+            return {"id": pid, "name": proj}
+        except Exception:
+            pass
+        # (b) treat as a main-API project id -> map to Tasks project by name
+        try:
+            main_projects = await main_client.get_projects("all")
+        except Exception:
+            main_projects = []
+        name = next((p.get("name") for p in main_projects if str(p.get("id")) == proj), None)
+        return await tasks_client.find_project_by_name(name) if name else None
+    # by name
+    return await tasks_client.find_project_by_name(proj)
+
+
+def _pick_default_list(lists: list):
+    """Pick a sensible default list for new todos: prefer 'To Do', else the
+    first non-'done' list, else the first list."""
+    if not lists:
+        return None
+    for lst in lists:
+        if (lst.get("name") or "").strip().lower() in ("to do", "todo", "to-do"):
+            return lst.get("id")
+    for lst in lists:
+        if (lst.get("type") or "").lower() != "done":
+            return lst.get("id")
+    return lists[0].get("id")
 
 
 async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.TextContent]:
@@ -262,8 +303,27 @@ async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.Tex
             token = await client._get_access_token()
             tasks_client = HubstaffTasksClient(access_token=token)
             try:
+                list_id = arguments.get("list_id")
+                # Resolve `project` (name or id) -> Tasks project -> default list,
+                # so callers don't have to chain list_tasks_projects/get_tasks_lists
+                # or hand-copy a Tasks list_id.
+                if not list_id:
+                    proj = arguments.get("project")
+                    if proj is None:
+                        return [TextContent(type="text", text="Provide either `project` (name or id) or `list_id`.")]
+                    tasks_project = await _resolve_tasks_project(client, tasks_client, str(proj).strip())
+                    if not tasks_project:
+                        return [TextContent(type="text", text=(
+                            f"Could not resolve project '{proj}' to a Hubstaff Tasks project. "
+                            "Call list_tasks_projects to see available names/ids."
+                        ))]
+                    lists = await tasks_client.get_lists(tasks_project["id"])
+                    list_id = _pick_default_list(lists)
+                    if not list_id:
+                        return [TextContent(type="text", text=f"Tasks project '{tasks_project.get('name', proj)}' has no lists to add a todo to.")]
+
                 todo = await tasks_client.create_task(
-                    list_id=arguments["list_id"],
+                    list_id=list_id,
                     subject=arguments["title"],
                     description=arguments.get("description"),
                     due_on=arguments.get("due_on"),
@@ -271,7 +331,7 @@ async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.Tex
                 )
                 task_id = todo.get("id")
                 subject = todo.get("subject", "Untitled")
-                return [TextContent(type="text", text=f"Created todo in Hubstaff Tasks:\nID: {task_id} | Subject: {subject}")]
+                return [TextContent(type="text", text=f"Created todo in Hubstaff Tasks:\nID: {task_id} | Subject: {subject} | List: {list_id}")]
             finally:
                 await tasks_client.close()
 
