@@ -11,7 +11,6 @@ class Config(BaseSettings):
         extra="ignore"
     )
     hubstaff_organization_id: str
-    hubstaff_tasks_organization_id: str | None = None
     hubstaff_api_base_url: str = "https://api.hubstaff.com"
     hubstaff_tasks_base_url: str = "https://tasks.hubstaff.com"
     port: int = 8000
@@ -65,11 +64,7 @@ class Config(BaseSettings):
     @property
     def hubstaff_org_id(self) -> str:
         return self.hubstaff_organization_id
-    
-    @property
-    def hubstaff_tasks_org_id(self) -> str | None:
-        return self.hubstaff_tasks_organization_id
-    
+
     @property
     def base_url(self) -> str:
         return self.hubstaff_api_base_url

@@ -152,7 +152,7 @@ def test_full_flow(client):
         headers={"Authorization": f"Bearer {access}"},
     )
     assert r.status_code == 200
-    assert len(r.json()["result"]["tools"]) == 12
+    assert len(r.json()["result"]["tools"]) == 13
 
 
 def test_pkce_mismatch_rejected(client):

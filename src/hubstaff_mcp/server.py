@@ -111,7 +111,7 @@ async def list_tools() -> list[types.Tool]:
                     "project": {"type": "string", "description": "Project name (e.g. 'INT: LumioHub') or project id. Resolves to the Tasks project and its default list. Provide this OR list_id."},
                     "list_id": {"type": "integer", "description": "Explicit Hubstaff Tasks list/column id (optional; overrides `project`)."},
                     "title": {"type": "string", "description": "Todo title - REQUIRED"},
-                    "assignee_ids": {"type": "array", "items": {"type": "integer"}, "description": "User IDs to assign (from list_team_members)."},
+                    "assignee_ids": {"type": "array", "items": {"type": "integer"}, "description": "User IDs to assign. Accepts list_team_members or list_tasks_members ids (mapped automatically)."},
                     "description": {"type": "string", "description": "Todo description (optional)"},
                     "due_on": {"type": "string", "description": "Due date YYYY-MM-DD (optional)"}
                 },
@@ -120,20 +120,30 @@ async def list_tools() -> list[types.Tool]:
         ),
         Tool(
             name="update_todo",
-            description="Update an existing todo in Hubstaff Tasks",
+            description="Update an existing todo in Hubstaff Tasks (title/description/due date/assignees). To mark done, use complete_todo. Moving a todo between lists/columns is not supported by the Tasks API.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "task_id": {"type": "integer", "description": "Task ID in Hubstaff Tasks - REQUIRED"},
                     "title": {"type": "string", "description": "New title for the todo (optional)"},
-                    "assignee_ids": {"type": "array", "items": {"type": "integer"}, "description": "New User IDs to assign (optional)"},
+                    "assignee_ids": {"type": "array", "items": {"type": "integer"}, "description": "User IDs to assign. Accepts list_team_members or list_tasks_members ids (mapped automatically)."},
                     "description": {"type": "string", "description": "New todo description (optional)"},
-                    "due_on": {"type": "string", "description": "New due date YYYY-MM-DD (optional)"},
-                    "list_id": {"type": "integer", "description": "Move to this list/column ID (optional)"}
+                    "due_on": {"type": "string", "description": "New due date YYYY-MM-DD (optional)"}
                 },
                 "required": ["task_id"],
                 "additionalProperties": False,
                 "minProperties": 2
+            }
+        ),
+        Tool(
+            name="complete_todo",
+            description="Mark a Hubstaff Tasks todo as complete (moves it to the Done list).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "integer", "description": "Task ID in Hubstaff Tasks - REQUIRED"}
+                },
+                "required": ["task_id"]
             }
         ),
         Tool(
@@ -189,6 +199,41 @@ async def _resolve_tasks_project(main_client, tasks_client, proj: str):
         return await tasks_client.find_project_by_name(name) if name else None
     # by name
     return await tasks_client.find_project_by_name(proj)
+
+
+async def _resolve_assignee_ids(main_client, tasks_client, ids: list) -> list:
+    """Map assignee ids to Hubstaff **Tasks** member ids.
+
+    Accepts either Tasks member ids (from list_tasks_members) or main-API user
+    ids (from list_team_members) and normalizes to Tasks member ids, which is
+    what the Tasks API's task[assignee_ids] expects. Mapping is by email, since
+    the two id spaces differ and Tasks members don't expose the account user id.
+    Unresolvable ids are dropped.
+    """
+    if not ids:
+        return []
+    tasks_members = await tasks_client.get_members()
+    tasks_ids = {m.get("id") for m in tasks_members}
+    email_to_tasks = {(m.get("email") or "").lower(): m.get("id") for m in tasks_members}
+
+    unknown = [i for i in ids if i not in tasks_ids]
+    main_id_to_email = {}
+    if unknown:
+        for m in await main_client.get_users():
+            u = m.get("user", {})
+            uid, em = u.get("id"), (u.get("email") or "").lower()
+            if uid and em:
+                main_id_to_email[uid] = em
+
+    resolved = []
+    for i in ids:
+        if i in tasks_ids:
+            resolved.append(i)
+        else:
+            tid = email_to_tasks.get(main_id_to_email.get(i, ""))
+            if tid:
+                resolved.append(tid)
+    return resolved
 
 
 def _pick_default_list(lists: list):
@@ -322,12 +367,15 @@ async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.Tex
                     if not list_id:
                         return [TextContent(type="text", text=f"Tasks project '{tasks_project.get('name', proj)}' has no lists to add a todo to.")]
 
+                assignee_ids = await _resolve_assignee_ids(
+                    client, tasks_client, arguments.get("assignee_ids") or []
+                )
                 todo = await tasks_client.create_task(
                     list_id=list_id,
                     subject=arguments["title"],
                     description=arguments.get("description"),
                     due_on=arguments.get("due_on"),
-                    assignee_ids=arguments.get("assignee_ids")
+                    assignee_ids=assignee_ids or None
                 )
                 task_id = todo.get("id")
                 subject = todo.get("subject", "Untitled")
@@ -336,8 +384,10 @@ async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.Tex
                 await tasks_client.close()
 
         elif name == "update_todo":
-            # Reject calls that provide no fields to update (fail fast)
-            valid_keys = {"title", "description", "due_on", "assignee_ids", "list_id"}
+            # Reject calls that provide no fields to update (fail fast).
+            # Note: list_id (moving between lists) is NOT supported by the Tasks
+            # API's PATCH endpoint; use complete_todo to mark done instead.
+            valid_keys = {"title", "description", "due_on", "assignee_ids"}
             update_fields = {}
             for k, v in arguments.items():
                 if k in valid_keys and v is not None:
@@ -346,22 +396,35 @@ async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.Tex
                     update_fields[k] = v
 
             if not update_fields:
-                return [TextContent(type="text", text="Error: No update fields provided. Please specify at least one property to update (e.g. title, assignee_ids, description, due_on, or list_id).")]
+                return [TextContent(type="text", text="Error: No update fields provided. Specify at least one of: title, description, due_on, assignee_ids.")]
 
             token = await client._get_access_token()
             tasks_client = HubstaffTasksClient(access_token=token)
             try:
+                assignee_ids = update_fields.get("assignee_ids")
+                if assignee_ids:
+                    assignee_ids = await _resolve_assignee_ids(client, tasks_client, assignee_ids)
                 todo = await tasks_client.update_task(
                     task_id=arguments["task_id"],
                     subject=update_fields.get("title"),
                     description=update_fields.get("description"),
                     due_on=update_fields.get("due_on"),
-                    assignee_ids=update_fields.get("assignee_ids"),
-                    list_id=update_fields.get("list_id")
+                    assignee_ids=assignee_ids,
                 )
                 task_id = todo.get("id")
                 subject = todo.get("subject", "Untitled")
                 return [TextContent(type="text", text=f"Updated todo in Hubstaff Tasks:\nID: {task_id} | Subject: {subject}")]
+            finally:
+                await tasks_client.close()
+
+        elif name == "complete_todo":
+            token = await client._get_access_token()
+            tasks_client = HubstaffTasksClient(access_token=token)
+            try:
+                todo = await tasks_client.complete_task(arguments["task_id"])
+                task_id = todo.get("id", arguments["task_id"])
+                subject = todo.get("subject", "")
+                return [TextContent(type="text", text=f"Completed todo in Hubstaff Tasks:\nID: {task_id} | Subject: {subject}")]
             finally:
                 await tasks_client.close()
         
@@ -588,7 +651,6 @@ if __name__ == "__main__":
         print(f"📊 Config:")
         print(f"   Base URL: {config.base_url}")
         print(f"   Hubstaff Org ID: {config.hubstaff_org_id}")
-        print(f"   Tasks Org ID: {config.hubstaff_tasks_org_id}")
         print(f"   Port: {config.port}")
         print(f"   Debug: {debug_mode}")
 

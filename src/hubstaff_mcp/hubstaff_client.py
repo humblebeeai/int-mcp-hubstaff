@@ -257,7 +257,8 @@ class HubstaffTasksClient:
         if due_on:
             form_data["task[due_on]"] = due_on
         if assignee_ids:
-            form_data["task[assigned_to_id]"] = str(assignee_ids[0]) if len(assignee_ids) == 1 else assignee_ids 
+            # The Tasks API expects an array: task[assignee_ids][]=<id>&...
+            form_data["task[assignee_ids][]"] = [str(a) for a in assignee_ids]
 
         headers = await self._get_headers()
         headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -276,9 +277,13 @@ class HubstaffTasksClient:
         description: str = None,
         due_on: str = None,
         assignee_ids: list = None,
-        list_id: int = None
     ) -> dict:
-        """Update an existing task in Hubstaff Tasks."""
+        """Update an existing task in Hubstaff Tasks.
+
+        Note: PATCH /v1/tasks/{id} accepts subject/description/due_on/
+        assignee_ids/label_ids/external_id — NOT list_id (you cannot move a task
+        between lists via this endpoint). Use complete_task() to mark done.
+        """
         form_data = {}
         if subject is not None:
             form_data["task[subject]"] = subject
@@ -286,10 +291,8 @@ class HubstaffTasksClient:
             form_data["task[description]"] = description
         if due_on is not None:
             form_data["task[due_on]"] = due_on
-        if assignee_ids:
-            form_data["task[assigned_to_id]"] = str(assignee_ids[0]) if len(assignee_ids) == 1 else assignee_ids
-        if list_id is not None:
-            form_data["task[list_id]"] = str(list_id)
+        if assignee_ids is not None:
+            form_data["task[assignee_ids][]"] = [str(a) for a in assignee_ids]
 
         if not form_data:
             raise ValueError("No update fields provided")
@@ -303,3 +306,12 @@ class HubstaffTasksClient:
         _raise_with_body(response)
         result = response.json()
         return result.get("task", {})
+
+    async def complete_task(self, task_id: int) -> dict:
+        """Mark a task complete (moves it to the Done list)."""
+        headers = await self._get_headers()
+        response = await self._client.patch(
+            f"/v1/tasks/{task_id}/complete", headers=headers
+        )
+        _raise_with_body(response)
+        return response.json().get("task", {})
