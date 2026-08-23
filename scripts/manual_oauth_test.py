@@ -92,3 +92,24 @@ st, txt = req("/mcp", {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
     "params": {"name": "list_team_members", "arguments": {}}}, bearer=access)
 print(f"[7] POST /mcp tools/call list_team_members -> {st}:\n{txt[:800]}")
 print("\nDONE. If [5]-[7] are 200 with data, the server + proxy + auth all work end-to-end.")
+
+# --- Hubstaff Tasks API probe (diagnose the 403/404 on the tasks tools) -------
+# Uses the SAME OAuth access token directly against tasks.hubstaff.com.
+import urllib.request as _u
+TASKS = "https://tasks.hubstaff.com/api"
+def tget(path):
+    r = _u.Request(TASKS + path, headers={"Authorization": f"Bearer {access}"})
+    try:
+        with _u.urlopen(r) as resp:
+            return resp.status, resp.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
+
+print("\n=== Hubstaff Tasks API probe ===")
+st, txt = tget("/v1/organizations")
+print(f"[T1] GET /v1/organizations -> {st}: {txt[:600]}")   # reveals the REAL tasks org id(s)
+st, txt = tget("/v1/projects")
+print(f"[T2] GET /v1/projects -> {st}: {txt[:800]}")         # your Tasks projects (find INT: LumioHub)
+st, txt = tget("/v1/organizations/141872/projects?status=active")
+print(f"[T3] GET /v1/organizations/141872/projects -> {st}: {txt[:300]}")  # confirm the hardcoded id 403s
+print("\nTASKS PROBE DONE. Compare T1/T2 (should be 200) vs T3 (expected 403) to confirm the org-id bug.")
