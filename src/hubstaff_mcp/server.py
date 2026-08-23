@@ -395,13 +395,6 @@ async def handle_mcp(request):
     await store.init()  # idempotent; ensures schema exists before any DB access
     grant_id = await _resolve_grant_id(request)
 
-    # Diagnostic: shows whether the Authorization header survives the proxy chain
-    # and whether the bearer resolved to a grant. Helps distinguish "token not
-    # forwarded by nginx/CF" from "token rejected by us".
-    _auth = request.headers.get("authorization")
-    _scheme = _auth.split(" ", 1)[0] if _auth else None
-    print(f"[/mcp] auth_present={bool(_auth)} scheme={_scheme} grant={'yes' if grant_id else 'no'}", flush=True)
-
     body = await request.body()
     import json
     try:
@@ -477,7 +470,23 @@ async def handle_mcp(request):
     return JSONResponse({"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": "Method not found"}})
 
 
+async def health(request):
+    """Unauthenticated liveness probe for uptime monitoring (Uptime Kuma).
+
+    Returns 200 as long as the process is serving. Reports whether the OAuth
+    broker is configured so a misconfigured deploy is visible in the monitor.
+    """
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "hubstaff-mcp",
+            "oauth_configured": config.oauth_configured,
+        }
+    )
+
+
 routes = [
+    Route("/health", health, methods=["GET"]),
     Route("/mcp", handle_mcp, methods=["POST"]),
     # OAuth discovery metadata (unauthenticated).
     Route(
