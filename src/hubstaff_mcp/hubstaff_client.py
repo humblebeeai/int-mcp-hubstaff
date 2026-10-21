@@ -151,6 +151,11 @@ class HubstaffClient:
 
         return data.get("tasks", [])
 
+    async def get_task(self, task_id: int) -> dict:
+        """Get one task by id, whatever its status (active or completed)."""
+        data = await self.get(f"/v2/tasks/{task_id}")
+        return data.get("task", {})
+
     async def create_task(
         self, project_id: int, title: str, assignee: int = None
     ) -> dict:

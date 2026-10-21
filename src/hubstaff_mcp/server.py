@@ -1,4 +1,5 @@
 """MCP Server for Hubstaff using Starlette HTTP endpoint for JSON-RPC routing."""
+import asyncio
 from mcp.types import TextContent, Tool
 import mcp.types as types
 from starlette.applications import Starlette
@@ -266,6 +267,20 @@ async def call_tool(name: str, arguments: dict, grant_id: str) -> list[types.Tex
             projects = {p["id"]: p["name"] for p in projects_data}
             tasks_data = await client.get_tasks(project_id=arguments.get("project_ids", [None])[0] if arguments.get("project_ids") else None)
             tasks = {t["id"]: t["summary"] for t in tasks_data}
+            # get_tasks lists active tasks only, so time tracked on a task that
+            # was completed since would show as "No task". Look those up by id.
+            missing_ids = {
+                a.get("task_id") for a in activities
+                if a.get("task_id") and a.get("task_id") not in tasks
+            }
+            if missing_ids:
+                fetched = await asyncio.gather(
+                    *(client.get_task(task_id) for task_id in missing_ids),
+                    return_exceptions=True,
+                )
+                for task in fetched:
+                    if isinstance(task, dict) and task.get("id") and task.get("summary"):
+                        tasks[task["id"]] = task["summary"]
             members = await client.get_users()
             user_info = {m["user"]["id"]: f"{m['user'].get('first_name', '')} {m['user'].get('last_name', '')}".strip() for m in members}
             return [TextContent(type="text", text=formatters.format_time_breakdown(activities, projects, tasks, user_info))]
